@@ -1,0 +1,111 @@
+// dynamic convolutions 
+// for glsl editor https://github.com/shawnlawson/The_Force
+// https://en.wikipedia.org/wiki/Autowave
+
+vec4 read(vec2 p) {
+    return texture2D(backbuffer, p);
+}
+
+
+const mat3 gauss = mat3(1.0, 2.0, 1.0, 
+                        2.0,-12.0, 2.0, 
+                        1.0, 2.0, 1.0) / 8.0;   
+
+const mat3 sobelX = mat3(-1., 0., 1.,
+                         -2., 0., 2.,
+                         -1., 0., 1.) / 8.;
+
+const mat3 sobelY = mat3(-1., -2., -1., 
+                          0.,  0.,  0.,
+                          1.,  2.,  1.) / 8.;
+                          
+const mat3 idm = mat3(1., 0., 0.,
+                      0., 1., 0., 
+                      0., 0., 1.);
+                          
+
+mat2 rot(float a) {
+    
+    return mat2(cos(a), -sin(a), 
+                sin(a), cos(a));
+}
+
+
+vec4 conv (ivec2 xy, mat3 filter, mat3 m) {
+    
+    vec4 l = vec4(0.0);
+    
+    filter *= m;
+
+    for (int y=0; y<3; ++y)
+        for (int x=0; x<3; ++x) {
+            ivec2 p = xy + ivec2(x-1, y-1);
+            
+            vec4 v = read(vec2(p) / (resolution.xy - vec2(.5) ));
+            
+            l += filter[x][y] * v;
+        }
+    
+    return l;  
+}  
+
+
+float pen(vec2 p, float r) {
+    return length(p) - pow(r, 2.);
+}
+
+
+void main () {
+    
+  // read input
+  vec2 data = mouse.xy / resolution.xy  ;
+  data -= vec2(1.);
+  data.x *= 2.;
+ 
+  // set parameters
+  float rate_a = 1.;
+  float rate_b = .5;
+  float feed = 0.055 + data.x / 10.;
+  float kill = 0.055 + data.y / 10.;
+  float speed = 1.;
+  float sobel = .0;
+  
+  
+  //read prev state
+  vec4 val = read(uvN());
+  float a = val.x;
+  float b = val.z;
+  
+  mat3 m = mat3(val.x, 0., 0.,
+                0., -(val.x - val.z), 0.,
+                0., 0., val.z) / 1.;
+  
+  
+  // rotate sobel filters
+  float phi = sin(time / 6.) * 6.28  ;
+  phi *= 0.;
+  vec2 dir = vec2(1.);
+  
+  
+  // process state
+  ivec2 coord = ivec2(gl_FragCoord.xy);
+  vec2 rot_dir = rot(phi) * dir;
+  
+  float da =  sobel * (conv(coord, sobelX, idm).x * rot_dir.x + conv(coord, sobelY, idm).x * rot_dir.y)  + rate_a * conv(coord, gauss, m).x  - a*b*b + feed * (1.-a);
+  float db = sobel * (conv(coord, sobelX, idm).z *rot_dir.x + conv(coord, sobelY, idm).z *rot_dir.y)  + rate_b * conv(coord, gauss, m).z + a*b*b - (kill + feed) * b;
+  
+  
+  // set new state
+  vec3 color = val.xyz + vec3(da, 0, db) * speed;
+  
+  vec2 uv = vec2(uv().x - data.x, -uv().y - (data.y) )  - vec2(.1);
+  
+  color = pen(uv, .3 + sin(time * 6.) / 60.) < 0. ? (sin(pen(uv, 1.) * (660. + sin(time* 12.))) < 0. ? vec3(sin(time* 5.), 0, cos(time * 5.)) : color) : color;
+      
+      
+  
+  // write to buffer
+  gl_FragColor = vec4(color, 1.);
+  
+
+}
