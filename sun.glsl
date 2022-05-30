@@ -3,12 +3,14 @@ float circle(vec2 p, float r) {
 }
 void main() {
     
-    vec3 sun = vec3(0.) ;
-    float hs = 2.;
-    sun.z = sin(-time / hs ) - .54;
-    sun.x = cos(time / hs) * 1.;
-    sun.y = sin(time / hs) * 1.;
+    vec3 sun  ;
+    float hs = 4.;
+    float ds = 10.;
+    sun.z = sin(-time / hs ) - cos(.65);
+    sun.x = cos(time / hs) * ds;
+    sun.y = sin(time / hs) * ds;
     vec4 land = texture2D(channel1, uvN() ) ;
+    // land = vec4(-circle(uv(), 1.));
     
     float c = circle(uv() + sun.xy, .2) < 0. ? 1. : 0.;
     
@@ -16,19 +18,31 @@ void main() {
     // a = atan(uv().x, uv().y);
     // float q = 
     
-    float h = land.z;
+    float horizon = circle(uv(), 1000.);
+    float h = land.z - horizon ;
     // h = uv().y;
     float q = acos(sun.z);
     
-    float dh = cos(q);
-    float g = texture2D(channel1, uvN() + vec2(sin(a), cos(a))).z ;
+    float dh;
+    float g;
+    float s; 
+    vec2 uvs = uvN(); 
+    for (int i=0; i<100; i++) {
+        
+        g = texture2D(channel1, uvs).z - horizon ;
+        float dir = a;
+        uvs += vec2(cos(dir), sin(dir)) / 1000.;
+        
+        dh = cos(q);
+        if (h + dh > g) {
+            break;
+        }
+    };
     
-    float s = h + dh > g? h : 0.;
+    s = h + dh > g? land.z : 0.;
     
-    
-    
-    // gl_FragColor = land + c ;
-    gl_FragColor.xyz =  vec3(s);
+    gl_FragColor.xyz = vec3(s);
+    gl_FragColor.x += land.x / 3.;
     gl_FragColor += c;
-    // gl_FragColor.z = .1;    
+        
 }
