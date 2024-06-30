@@ -1,0 +1,44 @@
+#define n 2
+
+vec4 read(int x, int y) {
+    
+    float f = 10. * (.1 + length(uv()) * length(uv()));
+    float factor = resolution.x / f;
+    float ratio = resolution.x / resolution.y;
+    
+    // downsample uvN
+    vec2 ds_uvn = (floor(uvN()  * vec2(factor*ratio, factor)) +.5 ) / vec2(factor*ratio, factor);
+    
+    return texture2D(backbuffer, ds_uvn  + vec2(x, y) * f / resolution);
+}
+
+void main() {
+    
+    
+    if (length(bands) > 1.) {
+        
+        gl_FragColor = texture2D(channel0, uvN()) * (.25 -  length(uv()));
+        return;
+    }
+    
+    vec4 res = vec4(0.);
+
+    for (int i=-n; i<=n; ++i) {
+        for (int j=-n; j<=n; ++j) {
+            res += read(i, j);
+        }
+    }
+    
+    vec4 back = texture2D(backbuffer, uvN());
+    vec4 col = res / 16.;
+    
+    
+    float r = 3.14 * 2.;
+    
+    col.x -= back.y; - sin(res.x / res.y) / r;
+    col.y -= back.z; - sin(res.y / res.z) / r;
+    col.z -= back.x; - sin(res.z / res.x) / r;
+
+    gl_FragColor = col / length(uv())  ; //+ read(0, 0) * .5;
+    
+}
